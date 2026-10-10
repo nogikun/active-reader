@@ -1,6 +1,32 @@
+# --- 個人の読書記録・メモ（コミットしない） ---
+# 既定の保存先は ~/.active-reader だが、--data-dir でリポジトリ内を指したときの保険
+.active-reader/
+**/docs/doc_*.json
+*.json.tmp
+# スキル評価の作業領域（実行ログに絶対パスや読書内容が残る）
+skills/reread-workspace/
+
+# --- 秘密情報・ローカル設定 ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.claude/settings.local.json
+CLAUDE.local.md
+
+# --- 開発環境 ---
 .direnv/
-.DS_Store
 .venv/
 __pycache__/
 .pytest_cache/
-skills/reread-workspace/
+*.egg-info/
+dist/
+build/
+
+# --- OS / エディタ ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
