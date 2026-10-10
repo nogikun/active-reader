@@ -167,7 +167,7 @@ function headingBefore(node) {
 
 // 選択を文節の境界まで広げる。境界はサーバーが形態素解析（janome）で計算して渡す
 let bounds = [];
-// 専門用語: サーバーが検出（最初の出現位置）、解説は Claude がチャット経由で書き戻す
+// 専門用語: サーバーが検出（最初の出現位置）、解説は AI がチャット経由で書き戻す
 let terms = [];
 let glossary = {};
 let currentTerm = null;
@@ -237,7 +237,7 @@ function setTab(name) {
   renderCaption();
 }
 
-// まだ Claude が対応していないマーカー（種類ごと）
+// まだ AI が対応していないマーカー（種類ごと）
 const UNDONE = {
   unknown: (a) => !a.ai.explanation,
   explain: (a) => !a.ai.evaluation,
@@ -250,14 +250,14 @@ function renderCaption() {
     const todo = terms.filter((t) => !glossary[t.term]).length;
     return $('#caption').replaceChildren(todo ? `未解説 ${todo}` : '');
   }
-  // 種類ごとに、未対応のマーカーをまとめて Claude に送る
+  // 種類ごとに、未対応のマーカーをまとめて AI に送る
   $('#caption').replaceChildren(h('span', { className: 'bulk' }, Object.keys(UNDONE).map((type) => {
     const todo = anns.filter((a) => a.type === type && UNDONE[type](a) && !sent.has(a.id));
     return h('button', {
       type: 'button',
       className: 'bulk-btn',
       disabled: !todo.length,
-      title: todo.length ? `未対応の「${LABEL[type]}」${todo.length} 件をまとめて Claude に送る（${SEND_LABEL[type]}）`
+      title: todo.length ? `未対応の「${LABEL[type]}」${todo.length} 件をまとめて AI に送る（${SEND_LABEL[type]}）`
         : `未対応の「${LABEL[type]}」はありません`,
       onclick: () => sendMarks(todo),
     }, typeIcon(type), String(todo.length), icon('send'));
@@ -304,8 +304,8 @@ async function sendMarks(list) {
     .catch((e) => alert(e.message));
   if (!res) return;
   for (const a of list) sent.set(a.id, a.updated_at);
-  toast(res.agent_waiting ? `${list.length} 件を Claude に送りました。説明はチャットに出ます`
-    : 'Claude が待ち受けていません。チャットで reread を使って文書を開くと対応します');
+  toast(res.agent_waiting ? `${list.length} 件を AI に送りました。説明はチャットに出ます`
+    : '依頼を受け付けました。チャットで「送った依頼に対応して」と伝えてください');
   renderList();
   // 書き戻されたら（updated_at が変わったら）結果を反映する
   for (let i = 0; i < 200 && doc?.id === id && list.some((a) => sent.has(a.id)); i++) {
@@ -332,9 +332,9 @@ function termNote(term) {
   const g = glossary[term];
   if (g) return h('p', { className: 'summary' }, g.summary || Object.values(g).find((v) => typeof v === 'string'));
   if (asking.get(term) === 'no-agent') {
-    return h('p', { className: 'muted' }, 'Claude が待ち受けていません。チャットで reread を使って文書を開くと、タップした用語を説明します。');
+    return h('p', { className: 'muted' }, '依頼を受け付けました。チャットで「送った依頼に対応して」と伝えるか、用語の参照をコピーして貼ってください。');
   }
-  return h('p', { className: 'muted thinking' }, 'Claude が解説しています。詳しい説明はチャットに出ます…');
+  return h('p', { className: 'muted thinking' }, 'AI が解説しています。詳しい説明はチャットに出ます…');
 }
 
 function renderTerms() {
@@ -412,15 +412,15 @@ function renderList() {
       title: LABEL[a.type],
       onclick: () => { show(a); if (lost) return; editAt(a); }, // 該当箇所へ移動してコメントを開く
     }, typeIcon(a.type), h('span', { className: 'item-text' }, a.selected_text.slice(0, 40), lost ? '（位置不明）' : ''),
-    sent.has(a.id) ? h('span', { className: 'pending', title: 'Claude が対応中' }, icon('send')) : null,
+    sent.has(a.id) ? h('span', { className: 'pending', title: 'AI が対応中' }, icon('send')) : null,
     h('button', {
       type: 'button',
       className: 'row-action',
-      title: `Claude に送る（${SEND_LABEL[a.type]}）`,
+      title: `AI に送る（${SEND_LABEL[a.type]}）`,
       onclick: (ev) => { ev.stopPropagation(); sendMarks([a]); },
     }, icon('send')),
     copyAction(refOf(a), 'ID をコピーしてチャットに貼る'));
-    // 選んだ行の下に、Claude が書き戻した結果があるときだけ展開する
+    // 選んだ行の下に、AI が書き戻した結果があるときだけ展開する
     const result = a === current && aiResult(a);
     return [head, row, result ? h('li', { className: 'expand' }, result) : null].filter(Boolean);
   }));

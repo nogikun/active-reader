@@ -49,6 +49,38 @@
         "1問（1課題）だけ出して回答を待っている",
         "模範解答・過去の AI 説明・原文の答え部分を先に見せていない"
       ]
+    },
+    {
+      "id": 4,
+      "name": "codex-reading-session",
+      "prompt": "ローカル実行できるChatGPT／Codexで hybrid_search.md を一緒に読みたい。UIで用語を押すので待っていて。",
+      "expected_output": "UIを起動し、会話内で wait --timeout 50 を待つ。時間切れの {} で解説したり会話を終了したりせず、届いた用語を説明して一言解説を書き戻し、待ち受けに戻る。",
+      "files": [
+        "evals/files/hybrid_search.md"
+      ],
+      "assertions": [
+        "起動出力のURLを案内した",
+        "waitを終了通知頼みで放置せず、実行結果を会話内で取得した",
+        "時間切れの {} を用語依頼として扱っていない",
+        "用語依頼への説明とset-termsでの書き戻しを行った",
+        "読書終了の入力で実行中の待ち受けを終了した"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "codex-resume-queued-requests",
+      "prompt": "ChatGPT／Codexの会話を閉じた後、UIからマーカーを送った。送った依頼に対応して。",
+      "expected_output": "起動中のサーバーから wait --timeout 0 で依頼を取得し、種類に応じて説明・評価・出題して書き戻す。空になったら終了する。出題や自己説明が必要なら答えを先に見せず回答を待つ。",
+      "files": [
+        "evals/files/hybrid_search.md"
+      ],
+      "seed": "marked",
+      "assertions": [
+        "wait --timeout 0 で既存のキューから依頼を取得した",
+        "AIの結果を既存の読書記録へ書き戻した",
+        "空のキューで無期限待ち受けを勝手に再開していない",
+        "自己説明や問題の答えを先に見せていない"
+      ]
     }
   ]
 }

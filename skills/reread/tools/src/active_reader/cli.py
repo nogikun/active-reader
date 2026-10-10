@@ -1,6 +1,7 @@
 import argparse
 import json
 import sys
+import time
 import webbrowser
 
 from . import nlp, server, store
@@ -107,14 +108,17 @@ def cmd_set_terms(a):
 
 
 def cmd_wait(a):
-    """UI からの依頼（用語のタップなど）を 1 件待ち、JSON で出して終了する。
-    スキルはこれをバックグラウンドで動かし、終了通知で起こされたら依頼に応える。"""
+    """UI からの依頼を 1 件待つ。時間切れなら空の JSON を返す。"""
+    if a.timeout is not None and a.timeout < 0:
+        raise ValueError('timeout は 0 以上の秒数で指定してください')
+    deadline = None if a.timeout is None else time.monotonic() + a.timeout
     while True:
+        timeout = 50 if deadline is None else min(50, max(0, deadline - time.monotonic()))
         try:
-            req = server.next_request(a.port)
+            req = server.next_request(a.port, timeout=timeout)
         except OSError as e:
             raise RuntimeError(f'UI サーバー (port {a.port}) に接続できません: {e}') from e
-        if req:
+        if req or (deadline is not None and time.monotonic() >= deadline):
             print(json.dumps(req, ensure_ascii=False, indent=2), flush=True)
             return
 
@@ -178,8 +182,10 @@ def main(argv=None):
     s.set_defaults(fn=cmd_set_terms)
 
     s = sub.add_parser('wait', parents=[common],
-                       help='UI からの依頼を 1 件待って JSON で出力（スキルがバックグラウンドで使う）')
+                       help='UI からの依頼を 1 件待って JSON で出力')
     s.add_argument('--port', type=int, default=8765)
+    s.add_argument('--timeout', type=int,
+                   help='待つ秒数（省略時は無期限、0 は即時取得。時間切れは {}）')
     s.set_defaults(fn=cmd_wait)
 
     s = sub.add_parser('list', parents=[common], help='読書記録の一覧')

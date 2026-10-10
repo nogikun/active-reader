@@ -222,7 +222,7 @@ html { scrollbar-width: thin; scrollbar-color: var(--scroll) transparent; }
 #nav, #panel, #reader pre { scrollbar-width: thin; scrollbar-color: transparent transparent; }
 #nav:hover, #panel:hover, #reader pre:hover { scrollbar-color: var(--scroll) transparent; }
 
-/* マーカーを Claude に送る */
+/* マーカーを AI に送る */
 .bulk { display: flex; gap: .25rem; }
 .bulk-btn { display: inline-flex; align-items: center; gap: .2rem; padding: .2rem .45rem; border-radius: 6px; font-size: .75rem; color: var(--muted); }
 .bulk-btn:hover:not(:disabled) { background: var(--hover); color: var(--fg); }
