@@ -20,3 +20,10 @@ tasks:
       - mise install
       # - pipx install pre-commit
       # - pre-commit install
+  # =============================================================================
+  # 開発
+  # =============================================================================
+  test:
+    desc: Run tests
+    cmds:
+      - uv run --directory skills/reread/tools pytest -q
