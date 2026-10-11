@@ -54,16 +54,18 @@ header .icon { position: absolute; display: flex; padding: .35rem; border-radius
 header .icon:hover { background: var(--hover); }
 #nav-btn { left: .5rem; }
 #panel-btn { right: .5rem; }
+#toc-btn { right: 2.5rem; display: none; }
 body.hide-nav #nav-btn, body.hide-panel #panel-btn { color: var(--muted); }
 
 main {
   /* --nav-size / --panel-size はドラッグした幅（JS が設定）。閉じたときは 0 にする */
-  --nav-w: var(--nav-size, 240px); --panel-w: var(--panel-size, 320px);
-  display: grid; grid-template-columns: var(--nav-w) minmax(0, 1fr) var(--panel-w);
+  --nav-w: var(--nav-size, 240px); --panel-w: var(--panel-size, 320px); --toc-w: 0px;
+  display: grid; grid-template-columns: var(--nav-w) minmax(0, 1fr) var(--toc-w) var(--panel-w);
 }
 #nav { grid-column: 1; }
 #reader { grid-column: 2; }
-#panel { grid-column: 3; }
+#toc { grid-column: 3; }
+#panel { grid-column: 4; }
 body.hide-nav main { --nav-w: 0px; }
 body.hide-panel main { --panel-w: 0px; }
 body.hide-nav #nav, body.hide-panel #panel { display: none; }
@@ -109,6 +111,36 @@ li:hover .row-action, .row-action:focus-visible { opacity: 1; }
 #reader table { border-collapse: collapse; }
 #reader th, #reader td { border-bottom: 1px solid var(--line); padding: .3rem .75rem; text-align: left; }
 .empty { margin-top: 30vh; text-align: center; }
+#reader :is(h1, h2, h3) { scroll-margin-top: 60px; } /* 目次から飛んだときヘッダに隠れない */
+
+/* 本文の横: 目次（Zenn 風）。見出しが 2 つ以上あり、横幅に余裕があるときだけ出す */
+#toc { display: none; font-size: .8rem; line-height: 1.5; }
+@media (min-width: 1200px) {
+  body.has-toc main { --toc-w: 220px; }
+  body.has-toc #toc {
+    display: block; position: sticky; top: 44px; height: calc(100vh - 44px); overflow: auto;
+    padding: 2.5rem 1rem 2rem 0;
+  }
+}
+/* 横幅が足りないとき: ヘッダのボタンで、右のサイドパネルの左に小窓として出す */
+@media (max-width: 1199px) {
+  body.has-toc #toc-btn { display: flex; }
+  body.has-toc.toc-open #toc {
+    display: block; position: fixed; z-index: 3; top: 52px; right: calc(var(--panel-w) + .5rem);
+    width: min(280px, calc(100vw - 1rem)); max-height: calc(100vh - 68px); overflow: auto;
+    padding: 1rem 1rem 1rem .75rem; background: var(--popover); border-radius: 12px;
+    box-shadow: 0 10px 32px #0003, 0 0 0 1px var(--line);
+  }
+  body.toc-open #toc-btn { background: var(--hover); }
+}
+.toc-head { font-size: .75rem; font-weight: 600; margin-bottom: .5rem; }
+#toc ol { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--line); }
+#toc button {
+  display: block; width: 100%; text-align: left; padding: .25rem .75rem; margin-left: -1px;
+  border-left: 2px solid transparent; color: var(--muted);
+}
+#toc button:hover { color: var(--fg); }
+#toc button.active { color: var(--fg); font-weight: 600; border-left-color: var(--accent); }
 
 /* 右: 詳細とマーカー一覧 */
 #panel {
@@ -147,7 +179,8 @@ li:hover .row-action, .row-action:focus-visible { opacity: 1; }
 
 /* 選択時のメニュー（iOS の編集メニュー風） */
 #bar { position: absolute; z-index: 5; }
-#bar[hidden] { display: none; }
+#bar[hidden] { display: none !important; } /* #bar.menu の display: flex に負けないように */
+.bar-spacer { display: block; }
 #bar.menu {
   /* 画面右端付近でも縮まないよう中身の幅で固定する */
   display: flex; width: max-content; white-space: nowrap; background: var(--menu); border-radius: 10px; overflow: hidden;
@@ -189,6 +222,7 @@ tr.missing { color: var(--muted); }
   .resizer { display: none; }
   #reader { padding: 1rem 1.25rem; }
   #panel { position: static; height: auto; border-left: 0; border-top: 1px solid var(--line); }
+  body.has-toc.toc-open #toc { right: .5rem; } /* パネルは本文の下に回るので右端に寄せる */
 }
 .toast {
   position: fixed; left: 50%; bottom: 1.5rem; transform: translateX(-50%); z-index: 10;
@@ -219,8 +253,8 @@ header .icon .ti { width: 18px; height: 18px; }
 
 /* スクロールバーは目立たせない: ページは細く薄く、パネルとコードは乗せたときだけ出る（macOS 風） */
 html { scrollbar-width: thin; scrollbar-color: var(--scroll) transparent; }
-#nav, #panel, #reader pre { scrollbar-width: thin; scrollbar-color: transparent transparent; }
-#nav:hover, #panel:hover, #reader pre:hover { scrollbar-color: var(--scroll) transparent; }
+#nav, #panel, #toc, #reader pre { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+#nav:hover, #panel:hover, #toc:hover, #reader pre:hover { scrollbar-color: var(--scroll) transparent; }
 
 /* マーカーを AI に送る */
 .bulk { display: flex; gap: .25rem; }

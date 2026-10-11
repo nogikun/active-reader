@@ -50,6 +50,7 @@ const ICONS = {
   'layout-sidebar-right': '<path d="M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2l0 -12"/><path d="M15 4l0 16"/>',
   'layout-sidebar': '<path d="M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2l0 -12"/><path d="M9 4l0 16"/>',
   'message-2': '<path d="M8 9h8"/><path d="M8 13h6"/><path d="M9 18h-3a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-3l-3 3l-3 -3"/>',
+  'list': '<path d="M9 6l11 0"/><path d="M9 12l11 0"/><path d="M9 18l11 0"/><path d="M5 6l0 .01"/><path d="M5 12l0 .01"/><path d="M5 18l0 .01"/>',
   'arrows-sort': '<path d="M3 9l4 -4l4 4m-4 -4v14"/><path d="M21 15l-4 4l-4 -4m4 4v-14"/>',
   'send': '<path d="M10 14l11 -11"/><path d="M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5"/>',
   'settings': '<path d="M10.325 4.317c.426 -1.756 2.924 -1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543 -.94 3.31 .826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756 .426 1.756 2.924 0 3.35a1.724 1.724 0 0 0 -1.066 2.573c.94 1.543 -.826 3.31 -2.37 2.37a1.724 1.724 0 0 0 -2.572 1.065c-.426 1.756 -2.924 1.756 -3.35 0a1.724 1.724 0 0 0 -2.573 -1.066c-1.543 .94 -3.31 -.826 -2.37 -2.37a1.724 1.724 0 0 0 -1.065 -2.572c-1.756 -.426 -1.756 -2.924 0 -3.35a1.724 1.724 0 0 0 1.066 -2.573c-.94 -1.543 .826 -3.31 2.37 -2.37c1 .608 2.296 .07 2.572 -1.065"/><path d="M9 12a3 3 0 1 0 6 0a3 3 0 0 0 -6 0"/>',
@@ -247,7 +248,7 @@ const SEND_LABEL = { unknown: '説明を頼む', explain: '評価を頼む', qui
 
 function renderCaption() {
   if (tab === 'terms') {
-    const todo = terms.filter((t) => !glossary[t.term]).length;
+    const todo = terms.filter((t) => inSection(t) && !glossary[t.term]).length;
     return $('#caption').replaceChildren(todo ? `未解説 ${todo}` : '');
   }
   // 種類ごとに、未対応のマーカーをまとめて AI に送る
@@ -338,12 +339,14 @@ function termNote(term) {
 }
 
 function renderTerms() {
-  $('#tab-terms').replaceChildren(icon('book'), `用語${terms.length ? ` ${terms.length}` : ''}`);
+  const shown = terms.filter(inSection); // 読んでいる節に初出する用語だけ
+  $('#tab-terms').replaceChildren(icon('book'), `用語${shown.length ? ` ${shown.length}` : ''}`);
   renderCaption();
-  if (!terms.length) {
-    return $('#terms').replaceChildren(h('li', { className: 'empty-row muted' }, doc ? '専門用語は見つかりませんでした。' : ''));
+  if (!shown.length) {
+    return $('#terms').replaceChildren(h('li', { className: 'empty-row muted' },
+      !doc ? '' : terms.length ? 'このセクションで初めて出てくる専門用語はありません。' : '専門用語は見つかりませんでした。'));
   }
-  $('#terms').replaceChildren(...terms.flatMap((t) => {
+  $('#terms').replaceChildren(...shown.flatMap((t) => {
     const row = h('li', {
       className: `term${t.term === currentTerm ? ' active' : ''}${glossary[t.term] ? '' : ' undefined'}`,
       onclick: () => showTerm(t.term, true),
@@ -512,10 +515,17 @@ function selectedRange() {
   const sel = getSelection();
   if (!doc || sel.isCollapsed || !sel.rangeCount) return null;
   const r = sel.getRangeAt(0);
-  return reader.contains(r.commonAncestorContainer) ? r : null;
+  // 改行や空白だけの選択（行末の余白を少しドラッグしたときなど）は、見た目では何も選ばれていないので選択なしとする
+  return reader.contains(r.commonAncestorContainer) && r.toString().trim() ? r : null;
 }
 
 // ドラッグを離したら文節単位に揃える（Option / Alt を押しながらなら文字単位のまま）
+// 選択中に本文を押したら、まず選択を外す。選択の中を押すと文字のドラッグになったり、
+// 下の mouseup で選択が戻ったりして、すぐに引き直せないため（ダブル・トリプルクリックと Shift は除く）
+reader.addEventListener('mousedown', (ev) => {
+  if (ev.button === 0 && ev.detail === 1 && !ev.shiftKey && !getSelection().isCollapsed) getSelection().removeAllRanges();
+});
+
 reader.addEventListener('mouseup', (ev) => {
   const r = selectedRange();
   if (!r || ev.altKey) return;
@@ -587,18 +597,19 @@ async function mark(type) {
   loadDocs();
 }
 
+function caretAt(x, y) {
+  if (document.caretPositionFromPoint) {
+    const p = document.caretPositionFromPoint(x, y);
+    return p && [p.offsetNode, p.offset];
+  }
+  const r = document.caretRangeFromPoint?.(x, y); // Safari
+  return r && [r.startContainer, r.startOffset];
+}
+
 // マーカーをクリック → その場でコメント編集
 reader.addEventListener('click', (ev) => {
   if (!getSelection().isCollapsed) return;
-  let node;
-  let off;
-  if (document.caretPositionFromPoint) {
-    const p = document.caretPositionFromPoint(ev.clientX, ev.clientY);
-    if (p) [node, off] = [p.offsetNode, p.offset];
-  } else {
-    const r = document.caretRangeFromPoint?.(ev.clientX, ev.clientY); // Safari
-    if (r) [node, off] = [r.startContainer, r.startOffset];
-  }
+  const [node, off] = caretAt(ev.clientX, ev.clientY) || [];
   if (!node) return;
   // 破線の用語を優先（マーカーと重なっていても用語を開く。マーカーは右の一覧からも開ける）
   for (const [term, r] of termRanges) {
@@ -626,9 +637,10 @@ function placeBar(box) {
   const maxLeft = document.documentElement.clientWidth - bar.offsetWidth - 8;
   bar.style.top = `${Math.max(8, top) + scrollY}px`;
   bar.style.left = `${Math.max(8, Math.min(box.left, maxLeft)) + scrollX}px`;
+  return top === below;
 }
 
-function showTypeButtons(box, overlaps = 0) {
+function showTypeButtons(r, overlaps = 0) {
   bar.className = 'menu';
   bar.replaceChildren(...Object.entries(KEYS).map(([key, type]) => h('button', {
     type: 'button',
@@ -637,10 +649,61 @@ function showTypeButtons(box, overlaps = 0) {
     onmousedown: (ev) => ev.preventDefault(), // 選択を消さない
     onclick: () => mark(type),
   }, typeIcon(type), LABEL[type])), ...(overlaps ? [h('span', { className: 'menu-hint' }, `Esc で ${overlaps} 件削除`)] : []));
-  placeBar(box);
+  // ドラッグ中は本文を動かさない（動かすと選択がずれる）。離してから空ける
+  if (placeBar(r.getBoundingClientRect()) && !pointerDown) openSpace(r);
 }
 
+// 選択メニューの分だけ、選択した行の次から本文を下にずらす（メニューで文章が隠れないように）。
+// 空の要素なので textContent（マーカー位置の基準）は変わらない
+const spacer = h('span', { className: 'bar-spacer' });
+let spaceKey = '';
+let pointerDown = false;
+
+function openSpace(r) {
+  const key = `${offsetOf(r.startContainer, r.startOffset)}-${offsetOf(r.endContainer, r.endOffset)}`;
+  if (key === spaceKey && spacer.isConnected) return; // 差し込みで selectionchange が来ても繰り返さない
+  closeSpace();
+  const line = [...r.getClientRects()].filter((b) => b.width > 0).pop();
+  if (!line) return;
+  // 選択の最後の行の右端 = 行末に差し込む
+  const right = reader.getBoundingClientRect().right - parseFloat(getComputedStyle(reader).paddingRight) - 1;
+  const p = caretAt(right, line.top + line.height / 2);
+  const at = document.createRange();
+  if (p && reader.contains(p[0]) && r.comparePoint(p[0], p[1]) > 0) at.setStart(p[0], p[1]);
+  else at.setStart(r.endContainer, r.endOffset);
+  spacer.style.height = `${bar.offsetHeight + 8}px`;
+  at.insertNode(spacer);
+  spaceKey = key;
+}
+
+function closeSpace() {
+  const parent = spacer.parentNode;
+  if (!parent) return;
+  spacer.remove();
+  parent.normalize(); // 差し込みで分かれたテキストを戻す（マーカーの Range は追従する）
+  spaceKey = '';
+}
+
+// メニューを閉じたら本文を戻す。押している間は戻さない（押した位置の文章が動いてしまうため）
+new MutationObserver(() => { if (bar.hidden && !pointerDown) closeSpace(); })
+  .observe(bar, { attributes: true, attributeFilter: ['hidden'] });
+document.addEventListener('mousedown', () => { pointerDown = true; }, true);
+// 離した時点の選択でメニューを出し直す。選択が無ければメニューを消して本文を戻す。
+// 選択した文字をドラッグすると mouseup が来ないので、dragend でも同じことをする
+const released = () => {
+  pointerDown = false;
+  setTimeout(() => {
+    const r = selectedRange();
+    if (r && !editing) showTypeButtons(r, marksIn(r).length);
+    else if (!r && bar.className === 'menu') bar.hidden = true;
+    if (bar.hidden || bar.className !== 'menu') closeSpace();
+  });
+};
+document.addEventListener('mouseup', released, true);
+document.addEventListener('dragend', released, true);
+
 function showNoteEditor(a, box, focus = true) {
+  closeSpace();
   editing = a;
   bar.className = 'editor';
   const note = h('textarea', {
@@ -690,7 +753,7 @@ function editAt(a) {
 document.addEventListener('selectionchange', () => {
   if (editing) return;
   const r = selectedRange();
-  if (r) showTypeButtons(r.getBoundingClientRect(), marksIn(r).length);
+  if (r) showTypeButtons(r, marksIn(r).length);
   else bar.hidden = true;
 });
 
@@ -699,6 +762,9 @@ document.addEventListener('mousedown', (ev) => {
   if (!bar.hidden && !bar.contains(ev.target)) closeEditor();
   if (document.body.classList.contains('nav-open') && !ev.target.closest('#nav, #nav-btn')) {
     document.body.classList.remove('nav-open');
+  }
+  if (document.body.classList.contains('toc-open') && !ev.target.closest('#toc, #toc-btn')) {
+    document.body.classList.remove('toc-open');
   }
 });
 
@@ -749,7 +815,46 @@ async function openDoc(id) {
     try { scrollTo(0, Number(localStorage.getItem(`scroll:${doc.id}`)) || 0); } catch { /* storage 不可 */ }
   }
   paint();
+  renderToc();
   await loadDocs();
+}
+
+// --- 目次（Zenn 風）: 本文の見出しを横に並べ、読んでいる節を示す ------------------------
+
+let tocItems = []; // [見出し要素, 目次のボタン, 本文 textContent 上の offset]
+let section = null; // 読んでいる節の範囲 [start, end)。目次が無い文書は null（全体）
+const inSection = (t) => !section || (section[0] <= t.start && t.start < section[1]);
+
+function renderToc() {
+  const hs = [...reader.querySelectorAll('h1, h2, h3')];
+  const top = Math.min(...hs.map((el) => Number(el.tagName[1])));
+  document.body.classList.toggle('has-toc', hs.length > 1);
+  tocItems = hs.map((el) => [el, h('button', {
+    type: 'button', // a[href="#…"] だと文書の切り替え（hash）と衝突する
+    style: `padding-left: ${0.75 + (Number(el.tagName[1]) - top) * 0.9}rem`,
+    onclick: () => {
+      document.body.classList.remove('toc-open'); // 小窓で選んだら閉じる
+      el.scrollIntoView({ behavior: 'smooth' });
+    },
+  }, el.textContent), offsetOf(el, 0)]);
+  $('#toc').replaceChildren(h('div', { className: 'toc-head muted' }, '目次'),
+    h('ol', {}, tocItems.map(([, b]) => h('li', {}, b))));
+  markToc();
+}
+
+// 画面上端を過ぎた最後の見出しを「読んでいる節」とする
+function markToc() {
+  let i = 0;
+  while (i + 1 < tocItems.length && tocItems[i + 1][0].getBoundingClientRect().top < 80) i++;
+  // 末尾の短い節は上端まで届かないので、一番下までスクロールしたら最後の節にする
+  if (tocItems.length && scrollY > 0 && innerHeight + scrollY >= document.documentElement.scrollHeight - 2) i = tocItems.length - 1;
+  tocItems.forEach((it, j) => it[1].classList.toggle('active', j === i));
+  // 最初の見出しより前の本文は最初の節に含める
+  const next = tocItems.length > 1 ? [i ? tocItems[i][2] : 0, tocItems[i + 1]?.[2] ?? Infinity] : null;
+  if (String(next) !== String(section)) {
+    section = next;
+    renderTerms(); // 節が変わったら用語一覧を絞り直す
+  }
 }
 
 const route = () => openDoc(location.hash.slice(1) || null).catch((e) => {
@@ -824,6 +929,10 @@ resizer($('#nav'), 'left', 'navW', 160, 480);
 resizer($('#panel'), 'right', 'panelW', 220, 640);
 $('#nav-btn').onclick = toggleNav;
 $('#panel-btn').onclick = () => togglePanel();
+$('#toc-btn').onclick = () => {
+  document.body.classList.toggle('toc-open');
+  $('#toc button.active')?.scrollIntoView({ block: 'nearest' }); // 長い目次でも読んでいる節が見えるように
+};
 document.addEventListener('keydown', (ev) => { // ⌘B: 文書一覧 / ⌥⌘B: サイドパネル（VS Code と同じ）
   if (ev.code !== 'KeyB' || !(ev.metaKey || ev.ctrlKey)) return;
   ev.preventDefault();
@@ -833,6 +942,7 @@ applyLayout();
 
 let scrollTimer;
 addEventListener('scroll', () => {
+  markToc();
   clearTimeout(scrollTimer);
   const id = doc?.id;
   scrollTimer = setTimeout(() => {
@@ -897,6 +1007,7 @@ if (!window.CSS?.highlights) {
 for (const b of document.querySelectorAll('#tabs button')) b.onclick = () => setTab(b.dataset.tab);
 $('#nav-btn').replaceChildren(icon('layout-sidebar'));
 $('#panel-btn').replaceChildren(icon('layout-sidebar-right'));
+$('#toc-btn').replaceChildren(icon('list'));
 $('#add').prepend(icon('file-plus', 'muted'));
 $('#records-btn').prepend(icon('settings'));
 route();
