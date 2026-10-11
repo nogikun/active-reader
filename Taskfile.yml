@@ -26,4 +26,8 @@ tasks:
   test:
     desc: Run tests
     cmds:
-      - uv run --directory skills/reread/tools pytest -q
+      - uv run --directory skills/reread/tools pytest -q tests ../evals
+  share-evals:
+    desc: Export anonymized evaluation logs to dist/eval-logs.zip
+    cmds:
+      - uv run --project skills/reread/tools python skills/reread/evals/anonymize.py

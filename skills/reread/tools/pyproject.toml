@@ -2,6 +2,8 @@
 name = "active-reader"
 version = "0.1.0"
 description = "AI支援型アクティブリーディングツール"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 dependencies = [
     "janome>=0.5.0",

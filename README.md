@@ -57,7 +57,8 @@ UI には AI 機能は無い。右パネルの「ID をコピー」をチャッ�
 ## 開発
 
 ```bash
-task test   # = uv run --directory skills/reread/tools pytest -q
+task test   # = uv run --directory skills/reread/tools pytest -q tests ../evals
+task share-evals  # 評価ログを匿名化し、共有用の dist/eval-logs.zip を作成
 ```
 
 ## セットアップ手順（Nix）
@@ -66,3 +67,23 @@ task test   # = uv run --directory skills/reread/tools pytest -q
 curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
 ```
 > **Determinate Systems 版を推奨。** `nix-command` と `flakes` が最初から有効なため、追加設定不要。
+
+## ライセンス
+
+本リポジトリの独自コード・ドキュメント・reread スキルは [MIT License](LICENSE) で公開する。
+著作権者は `nogi (nogikun)`。利用・改変・商用利用・再配布ができ、コピーや重要な部分の再配布には著作権表示とライセンス全文を残す。
+Python 配布パッケージにも同じ [LICENSE](skills/reread/tools/LICENSE) を含める。
+ユーザーが読み込む書籍・記事・論文などの資料には、その資料の権利・ライセンスが適用される。
+
+第三者のコード・データは、それぞれのライセンスに従う。実行時の依存と同梱素材は次のとおり（バージョンは `uv.lock` と同梱アイコンの表記に基づく）。
+
+| コンポーネント | バージョン | ライセンス・表記 |
+| --- | --- | --- |
+| Janome | 0.5.0 | [Apache-2.0](https://github.com/mocobeta/janome/blob/0.5.0/LICENSE.txt)。同梱の MeCab-IPADIC 辞書には [NOTICE.txt](https://github.com/mocobeta/janome/blob/0.5.0/NOTICE.txt) の条件も適用 |
+| markdown-it-py | 4.2.0 | [MIT](https://github.com/executablebooks/markdown-it-py/blob/v4.2.0/LICENSE)。移植元の [著作権表示](https://github.com/executablebooks/markdown-it-py/blob/v4.2.0/LICENSE.markdown-it) も保持 |
+| mdurl（間接依存） | 0.1.2 | [MIT](https://github.com/executablebooks/mdurl/blob/0.1.2/LICENSE) |
+| Tabler Icons（SVG を同梱） | 3.49.0 | [MIT](https://github.com/tabler/tabler-icons/blob/v3.49.0/LICENSE)。著作権表示と全文を [app.js](skills/reread/tools/src/active_reader/static/app.js) に保持 |
+
+Janome を依存として利用しても、本リポジトリを Apache-2.0 に変更する必要はない（[Apache-2.0 第4条](https://www.apache.org/licenses/LICENSE-2.0)）。
+依存パッケージや辞書もまとめて再配布する場合は、各配布物の著作権表示・ライセンス・NOTICE を保持する。
+開発用依存には MIT、BSD、PSF-2.0、Apache-2.0 / BSD の選択式ライセンスが含まれ、それらも本リポジトリの MIT とは別に適用される。
