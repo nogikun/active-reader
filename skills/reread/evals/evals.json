@@ -5,13 +5,15 @@
       "id": 1,
       "name": "start-reading-session",
       "prompt": "skills/reread/evals/files/hybrid_search.md を勉強したいから付き合って",
-      "expected_output": "リーダー UI をバックグラウンドで起動し、URL と u/e/q のマーカー操作を案内する。いきなり全文を要約・講義しない。",
+      "expected_output": "リーダー UI を --no-browser でバックグラウンド起動し（ブラウザは開かない）、出力の URL を「こちらを開いてください」のリンクとコピー用の URL で案内し、u/e/q のマーカー操作を案内する。いきなり全文を要約・講義しない。",
       "files": [
         "evals/files/hybrid_search.md"
       ],
       "assertions": [
-        "リーダー UI を active-reader open で起動した",
-        "返信に UI の URL (http://127.0.0.1:...) がある",
+        "リーダー UI を active-reader open --no-browser で起動した",
+        "ブラウザを自動で開いていない（open コマンドやブラウザ操作ツールも使っていない）",
+        "返信で起動出力の URL を「こちらを開いてください」形式のクリックできるリンクとして案内している",
+        "返信にコピー用の URL がそのままの形（コードブロックなど）でもある",
         "返信で u / e / q のマーカー操作を案内している",
         "いきなり資料全体の要約・講義をしていない（読むのはユーザー）",
         "起動したサーバーを最後に停止した"
@@ -59,7 +61,7 @@
         "evals/files/hybrid_search.md"
       ],
       "assertions": [
-        "起動出力のURLを案内した",
+        "--no-browser で起動し、起動出力のURLをリンクで案内した",
         "waitを終了通知頼みで放置せず、実行結果を会話内で取得した",
         "時間切れの {} を用語依頼として扱っていない",
         "用語依頼への説明とset-termsでの書き戻しを行った",
