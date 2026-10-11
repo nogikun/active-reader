@@ -175,7 +175,9 @@ scores = rrf(rankings)
     assert 'AWS' not in [r['term'] for r in json.loads(capsys.readouterr().out)]  # 既定は未解説のみ
 
 
-def test_ask_agent_queue(tmp_path):
+def test_ask_agent_queue(tmp_path, capsys):
+    from active_reader import cli
+
     data = tmp_path / 'data'
     (tmp_path / 'a.md').write_text('# T\n\nAWS の CloudFront を使う。\n', encoding='utf-8')
     doc = store.register(data, tmp_path / 'a.md')
@@ -203,7 +205,57 @@ def test_ask_agent_queue(tmp_path):
     store.upsert(data, doc, 'ann_2', {**ANN, 'type': 'quiz'})
     assert post(ask, {'ann_ids': ['ann_1', 'ann_2']})[0] == 200
     assert post(ask, {'ann_ids': ['nope']})[0] == 400
-    req = server.next_request(port, timeout=1)
-    assert req['kind'] == 'marks' and [a['id'] for a in req['annotations']] == ['ann_1', 'ann_2']
-    assert req['annotations'][0]['note'] == 'なぜ?' and 'ai' in req['annotations'][0]
-    srv.shutdown()
+    try:
+        # ChatGPT/Codex が会話再開時に、届いている依頼を即時取得する
+        cli.main(['wait', '--port', str(port), '--timeout', '0'])
+        req = json.loads(capsys.readouterr().out)
+        assert req['kind'] == 'marks' and [a['id'] for a in req['annotations']] == ['ann_1', 'ann_2']
+        assert req['annotations'][0]['note'] == 'なぜ?' and 'ai' in req['annotations'][0]
+        cli.main(['wait', '--port', str(port), '--timeout', '0'])
+        assert json.loads(capsys.readouterr().out) == {}
+
+        # 実行中の会話で待っている間に来た UI 操作も受け取る
+        timer = threading.Timer(0.05, lambda: post(ask, {'term': 'AWS'}))
+        timer.start()
+        cli.main(['wait', '--port', str(port), '--timeout', '1'])
+        assert json.loads(capsys.readouterr().out)['term'] == 'AWS'
+        timer.join()
+        cli.main(['wait', '--port', str(port), '--timeout', '1'])
+        assert json.loads(capsys.readouterr().out) == {}
+    finally:
+        srv.shutdown()
+        srv.server_close()
+
+
+def test_cli_wait_default_deadline_and_errors(monkeypatch, capsys):
+    from active_reader import cli
+
+    requests = iter([{}, {'kind': 'term', 'term': 'AWS'}])
+    timeouts = []
+
+    def next_request(port, timeout):
+        timeouts.append(timeout)
+        return next(requests)
+
+    monkeypatch.setattr(server, 'next_request', next_request)
+    cli.main(['wait'])  # Claude Code の無期限待ち受けは空の応答で終了しない
+    assert json.loads(capsys.readouterr().out)['term'] == 'AWS'
+    assert timeouts == [50, 50]
+
+    requests = iter([{}, {}])
+    timeouts.clear()
+    ticks = iter([0, 0, 50, 50, 60])
+    monkeypatch.setattr(cli.time, 'monotonic', lambda: next(ticks))
+    cli.main(['wait', '--timeout', '60'])
+    assert json.loads(capsys.readouterr().out) == {}
+    assert timeouts == [50, 10]  # 各 HTTP 待機ではなくコマンド全体の上限
+
+    with pytest.raises(SystemExit, match='timeout は 0 以上'):
+        cli.main(['wait', '--timeout', '-1'])
+
+    def disconnected(port, timeout):
+        raise OSError('connection refused')
+
+    monkeypatch.setattr(server, 'next_request', disconnected)
+    with pytest.raises(SystemExit, match='接続できません'):
+        cli.main(['wait'])
