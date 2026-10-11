@@ -26,7 +26,19 @@ ln -s "$(pwd)/skills/reread" ~/.agents/skills/reread
 
 「この資料を一緒に読みたい: book.md」「マーカーを付けたところを説明して」「問題を出して」「復習したい」などと話しかけると、AI が UI を起動して「こちらを開いてください」とリンクを案内し（ブラウザは勝手に開かないので、アプリ内ブラウザやアプリの横など好きな場所で開ける）、読書記録を CLI で読み書きしながらチューターをする。
 
-Claude Code は従来どおり、`wait` をバックグラウンドで動かして終了通知を受け取る。ChatGPT／Codex は `wait --timeout 50` の結果を実行中の会話で待ち、UI から届いた依頼に対応する。Codex のバックグラウンド hook は完了だけでは新しい会話のターンを開始しないため、この待ち受け方式を使う（[公式の hooks 仕様](https://learn.chatgpt.com/docs/hooks)）。会話を終了した後は、UI で送信してからチャットで「送った依頼に対応して」と伝えるか、参照をコピーして貼る。待ち受けを終えるときは「読書を終える」と伝える。依頼キューはサーバーの再起動で消えるので、その場合は再送する。
+Claude Code は従来どおり、`wait` をバックグラウンドで動かして終了通知を受け取る。Claude 用の hooks・設定・CLI の動作は変更しない。
+
+ChatGPT／Codex のローカル環境では、初回に以下を実行して自動待ち受け用の hooks を登録する。
+
+```bash
+uv run -q --project skills/reread/tools active-reader install-hooks
+```
+
+既存の `~/.codex/hooks.json`（`CODEX_HOME` 設定時はその配下）に追加し、既存 hooks は保持する。変更前のファイルは `hooks.json.reread-backup` に保存する。Claude の設定には触れない。`/hooks` で追加した定義を確認・信頼した後、新しい会話でこのリポジトリの `reread` スキルを使う。古い配布版プラグインを使っている場合は、スキル本体も更新する。
+
+スキルが読書を開始すると `listen --port <UI のポート>` でその会話だけを有効化する。同期 `Stop` hook が UI の依頼を待ち、用語・マーカーが届けば会話を自動継続する（[公式の hooks 仕様](https://learn.chatgpt.com/docs/hooks)）。依頼が無い場合も 50 秒ごとに継続するため、読書中は会話が稼働し、モデル利用が発生する。UI の「読書をやめる」は未保存のコメントを保存して、その UI のサーバーと AI の待ち受けを終了する。`listen --stop`、チャットの停止ボタン、会話の終了、UI の切断でも hook の待ち受けを解除する。hooks はローカル実行が必要で、cloud-orchestrated ChatGPT Work の plugin hooks は未対応（[公式の対応範囲](https://learn.chatgpt.com/docs/plugins)）。
+
+hooks が未起動なら従来の `wait --timeout 50` で会話内の待ち受けを続ける。待ち受けを終えるときは「読書を終える」と伝える。停止後に UI で送った依頼は、チャットで「送った依頼に対応して」と伝えるか、参照をコピーして貼る。依頼キューはサーバーの再起動で消えるので、その場合は再送する。
 
 読書記録と依頼の JSON は AI 共通。Claude Code と ChatGPT／Codex で同じ UI を利用できるが、同じサーバーで待ち受ける AI は 1 つにする。Kiro／Copilot 固有の連携は今後の対応範囲。
 
@@ -42,6 +54,9 @@ $AR set-terms book.md < glossary.json               # 用語の一言解説を�
 $AR wait                  # UI で用語がタップされるのを待ち、依頼を JSON で出力（スキルが常駐させる）
 $AR wait --timeout 50     # 最大 50 秒待つ。時間切れは {}（ChatGPT／Codex 用）
 $AR wait --timeout 0      # キューの次の依頼を即時取得。空なら {}
+$AR install-hooks        # ChatGPT／Codex 用 hooks を既存の設定に追加
+$AR listen --port 8765   # この会話だけ自動待ち受け（通常はスキルが実行）
+$AR listen --stop        # 自動待ち受けを終了
 $AR list                  # 読書記録の一覧
 $AR delete ~/books/rust   # ファイル or フォルダ配下（プロジェクト）の記録を削除
 $AR clean                 # 元文書が無くなった記録を削除
