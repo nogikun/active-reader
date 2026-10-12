@@ -67,7 +67,17 @@ UI には AI 機能は無い。右パネルの「ID をコピー」をチャッ�
 
 - 読書記録は `~/.active-reader/docs/<doc_id>.json`（`--data-dir` で変更）。元文書には書き込まない。
 - doc_id は文書の絶対パス由来。文書を移動すると旧記録は「見つからない」扱いになる。
-- ブラウザ: Chrome 105+ / Safari 17.2+ / Firefox 140+（CSS Custom Highlight API）
+- ブラウザ: Chrome 109+ / Safari 17.2+ / Firefox 140+（MathML と CSS Custom Highlight API）
+
+Markdown の数式は `$E = mc^2$`（行内）と `$$\frac{1}{2}$$`（独立した数式、複数行も可）で書く。
+TeX を MathML に変換してブラウザで描画するため、実行時に外部 CDN への接続は不要。
+分数、総和、添字、行列、`aligned` に対応する。コード内の `$` やエスケープした `\$` は数式に変換しない。
+数式の `$` と式の間には空白を入れない。段落内の `$$...$$` や、前後に空行がない数式も表示できる。
+表の数式・コード内にある `|` も、列区切りとして分割せずに表示する。
+『プログラマーのための圏論』の [Markdown 版](https://github.com/ktgw0316/milewski-ctfp-markdown) で使われる
+`\cat`、`\Set`、`\Rel`、`\Cat`、`\Hask`、`\id`、`\idarrow[A]`、`\Lim`、`\Ran`、`\Lan`、`\Fop`、`\Nat` の略記にも対応する。
+変換エラーがある式は元の TeX を表示する。任意の LaTeX パッケージの読み込みには対応しない。
+数式を含む文書で保存済みのマーカーは前後の文脈で位置を復元するが、TeX 自体を選択していたマーカーは再選択が必要になる場合がある。
 
 ## 開発
 
@@ -97,6 +107,8 @@ Python 配布パッケージにも同じ [LICENSE](skills/reread/tools/LICENSE) 
 | Janome | 0.5.0 | [Apache-2.0](https://github.com/mocobeta/janome/blob/0.5.0/LICENSE.txt)。同梱の MeCab-IPADIC 辞書には [NOTICE.txt](https://github.com/mocobeta/janome/blob/0.5.0/NOTICE.txt) の条件も適用 |
 | markdown-it-py | 4.2.0 | [MIT](https://github.com/executablebooks/markdown-it-py/blob/v4.2.0/LICENSE)。移植元の [著作権表示](https://github.com/executablebooks/markdown-it-py/blob/v4.2.0/LICENSE.markdown-it) も保持 |
 | mdurl（間接依存） | 0.1.2 | [MIT](https://github.com/executablebooks/mdurl/blob/0.1.2/LICENSE) |
+| mdit-py-plugins | 0.6.1 | [MIT](https://github.com/executablebooks/mdit-py-plugins/blob/v0.6.1/LICENSE) |
+| latex2mathml | 3.81.1 | [MIT](https://github.com/roniemartinez/latex2mathml/blob/3.81.1/LICENSE) |
 | Tabler Icons（SVG を同梱） | 3.49.0 | [MIT](https://github.com/tabler/tabler-icons/blob/v3.49.0/LICENSE)。著作権表示と全文を [app.js](skills/reread/tools/src/active_reader/static/app.js) に保持 |
 
 Janome を依存として利用しても、本リポジトリを Apache-2.0 に変更する必要はない（[Apache-2.0 第4条](https://www.apache.org/licenses/LICENSE-2.0)）。
